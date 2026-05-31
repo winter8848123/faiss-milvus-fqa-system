@@ -1,5 +1,5 @@
 """
-FQA数据加载
+FAQ数据加载
 """
 import os
 import re
@@ -16,8 +16,8 @@ from llama_index.llms.dashscope import DashScope
 from config import setting
 
 
-class FQADataLoader:
-    """FQA数据加载"""
+class FAQDataLoader:
+    """FAQ数据加载"""
 
     def __init__(self):
         """初始化"""
@@ -33,24 +33,24 @@ class FQADataLoader:
         Settings.embed_model = embed_model
         Settings.llm = llm
     #
-    # def parse_fqa_file(self, file_path) -> List[Dict[str, Any]]:
-    #     """解析FQA文件"""
+    # def parse_faq_file(self, file_path) -> List[Dict[str, Any]]:
+    #     """解析FAQ文件"""
     #     with open(file_path, "r", encoding="utf-8") as f:
     #         content = f.read()  # 读取文件内容
     #
     #     qa_parttern = r'Q:\s*(.*?)\s*A:\s*(.*?)(?=Q:|$)' # 正则条件
     #     matches = re.findall(qa_parttern, content, re.DOTALL)  # 使用正则实现筛选匹配
     #
-    #     fqa_items = []
+    #     faq_items = []
     #     for i, (question, answer) in enumerate(matches):  # 迭代实现加入列表
-    #         fqa_items.append({
+    #         faq_items.append({
     #             "id": i+1,
     #             "question": question.strip(),
     #             "answer": answer.strip()
     #         })
-    #         print(f"筛选的{len(fqa_items)}")
+    #         print(f"筛选的{len(faq_items)}")
     #
-    #         return fqa_items
+    #         return faq_items
     def parse_faq_file(self, file_path: str) -> List[Dict[str, Any]]:
         """解析FAQ文件"""
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -69,10 +69,10 @@ class FQADataLoader:
 
         return faq_items
 
-    def create_documents(self, fqa_items: List[Dict[str, Any]]) -> List[Document]:
+    def create_documents(self, faq_items: List[Dict[str, Any]]) -> List[Document]:
         """构建文档"""
         documents = []
-        for item in fqa_items:
+        for item in faq_items:
             content = f"问题：{item['question']}\n 答案：{item['answer']}"
 
             document = Document(
@@ -112,9 +112,9 @@ class FQADataLoader:
 
         if force_rebuild or not os.path.exists(index_path):
             print(f"构建新的向量索引")
-            fqa_items = self.parse_faq_file(setting.fqa_file_path)
-            print(f"解析到{len(fqa_items)}个条目")
-            documents = self.create_documents(fqa_items)
+            faq_items = self.parse_faq_file(setting.faq_file_path)
+            print(f"解析到{len(faq_items)}个条目")
+            documents = self.create_documents(faq_items)
             index = self.build_vector_index(documents)
             self.save_index(index, index_path)
 

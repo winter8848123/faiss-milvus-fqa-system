@@ -3,7 +3,7 @@
 """
 
 import os
-from data_loader import FQADataLoader
+from data_loader import FAQDataLoader
 from config import setting
 
 
