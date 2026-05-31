@@ -3,6 +3,8 @@
 """
 
 import os
+import dotenv
+dotenv.load_dotenv(override=True)
 
 #DashScope配置
 DASHSCOPE_API_KEY= os.getenv("DASHSCOPE_API_KEY")
@@ -13,7 +15,7 @@ FAISS_INDEX_PATN = "./data/faiss_index"
 VECTOR_DIMENSION=512
 
 
-FQA_FILE_PATH="./FAQ.txt"
+FQA_FILE_PATH="./FQA.txt"
 
 #检索配置
 TOP_K = 3
