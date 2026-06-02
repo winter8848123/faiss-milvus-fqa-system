@@ -1,0 +1,20 @@
+{
+  "current_version": "1.0.2",
+  "versions": [
+    {
+      "version": "1.0.1",
+      "backup_name": "backup_v1.0.1_20260602153757",
+      "timestamp": "20260602153757",
+      "description": "测试备份",
+      "faq_count": 14
+    },
+    {
+      "version": "1.0.2",
+      "backup_name": "backup_v1.0.2_20260602153943",
+      "timestamp": "20260602153943",
+      "description": "测试备份",
+      "faq_count": 14
+    }
+  ],
+  "created_at": "2026-06-02T15:32:12.492935"
+}

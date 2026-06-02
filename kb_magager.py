@@ -7,7 +7,7 @@ import os
 import json
 import shutil
 import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 import pandas as pd
 import re
@@ -19,7 +19,7 @@ from config import setting
 class KnowledgeBaseManager:
     """初始化知识库管理器"""
 
-    def __init__(self, faq_file_path: str, index_path: str):
+    def __init__(self, faq_file_path: str = None, index_path: str = None):
         """初始化知识库管理器"""
         self.faq_file_path = faq_file_path or setting.faq_file_path
         self.index_path = index_path or setting.faiss_index_path
@@ -50,8 +50,9 @@ class KnowledgeBaseManager:
     def __get_version_info(self) -> Dict[str, Any]:
         """获取版本信息"""
         with open(self.version_file, "r", encoding="utf-8") as f:
-            print("获取版本信息：" + json.load(f))
-            return json.load(f)
+            version_data = json.load(f)
+            print("获取版本信息：", version_data)
+            return version_data
 
     def __update_version_info(self, version_info: Dict[str, Any]):
         """更新版本信息"""
@@ -60,7 +61,7 @@ class KnowledgeBaseManager:
 
     def __generate_version_info(self) -> str:
         """生成新的版本号"""
-        version_info = self.__init_version_info()
+        version_info = self.__get_version_info()
         current = version_info["current_version"]
         major, minor, patch = map(int, current.split("."))
 
@@ -316,3 +317,183 @@ class KnowledgeBaseManager:
         except Exception as e:
             print(f"从TXT导入失败: {str(e)}")
             return False
+
+    # 版本知识库管理
+    def create_backup(self, description: str = "") -> str:
+        """创建知识库备份"""
+        try:
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            version_number = self.__generate_version_info()
+            backup_name = f"backup_v{version_number}_{timestamp}"
+            backup_path = os.path.join(self.backup_dir, backup_name)
+
+            os.makedirs(backup_path, exist_ok=True)
+
+            # 备份FAQ文件
+            if os.path.exists(self.faq_file_path):
+                shutil.copy2(self.faq_file_path, os.path.join(backup_path, "faq.txt"))
+
+            # 备份索引文件（目录）
+            if os.path.exists(self.index_path):
+                backup_index_dest = os.path.join(backup_path, "faiss_index")
+                if os.path.isdir(self.index_path):
+                    shutil.copytree(self.index_path, backup_index_dest)
+                else:
+                    shutil.copy2(self.index_path, backup_index_dest)
+
+            # 更新版本信息
+            version_info = self.__get_version_info()
+            version_record = {
+                "version": version_number,
+                "backup_name": backup_name,
+                "timestamp": timestamp,
+                "description": description,
+                "faq_count": len(self.get_all_faqs())
+            }
+
+            version_info["versions"].append(version_record)
+            version_info["current_version"] = version_number
+            self.__update_version_info(version_info)
+
+            print(f"创建备份成功：{backup_name}")
+
+            return backup_name
+        except Exception as e:
+            print(f"创建备份失败：{str(e)}")
+            return ""
+
+    def list_backups(self) -> List[Dict[str, Any]]:
+        """列出所有备份"""
+        version_info = self.__get_version_info()
+        return version_info.get("versions", [])
+
+    def restore_from_backup(self, backup_name: str) -> bool:
+        """备份恢复知识库"""
+        try:
+            backup_path = os.path.join(self.backup_dir, backup_name)
+
+            if not os.path.join(self.backup_dir):
+                print(f"备份不存在：{backup_path}")
+                return False
+
+            # 恢复FAQ文件
+            backup_index_path = os.path.join(backup_path, "faiss_index")
+            if os.path.exists(backup_index_path):
+                if os.path.exists(self.index_path):
+                    shutil.rmtree(self.index_path)
+
+            print(f"从备份恢复成功：{backup_name}")
+
+        except Exception as e:
+            print(f"从备份恢复失败：{str(e)}")
+
+    def delete_backup(self, backup_name: str) -> bool:
+        """删除指定备份"""
+        try:
+            backup_path = os.path.join(self.backup_dir, backup_name)
+
+            if os.path.exists(backup_path):
+                shutil.rmtree(backup_path)
+
+                # 从版本信息中移除
+                version_info = self.__get_version_info()
+                version_info["versions"] = [v for v in version_info["versions"] if v["backup_name"] != backup_path]
+
+                self.__update_version_info(version_info)
+
+                print(f"备份已删除{backup_name}")
+
+                return True
+        except Exception as e:
+            print(f'备份删除失败：{str(e)}')
+
+            return False
+
+    def get_statisitcs(self) -> Dict[str, Any]:
+        """获取知识库统计数据"""
+
+        faqs = self.get_all_faqs()
+
+        stats = {
+            "total_faqs": len(faqs),
+            "avg_question_length": 0,
+            "avg_answer_length": 0,
+            "index_exists": os.path.exists(self.index_path),
+            "last_updated": "",
+            "version_info": self.__get_version_info()
+        }
+
+        if faqs:
+            stats["avg_question_length"] = sum(len(faq['question']) for faq in faqs) / len(faqs)
+            stats["avg_answer_length"] = sum(len(faq['answer']) for faq in faqs) / len(faqs)
+
+        if os.path.exists(self.faq_file_path):
+            stats["last_updated"] = datetime.datetime.fromtimestamp(
+                os.path.getmtime(self.faq_file_path)
+            ).isoformat()
+
+        return stats
+
+    def validate_knowledge_base(self) -> Dict[str, Any]:
+        """验证知识库的完整性"""
+        issues = []
+        warnings = []
+
+        # 检查FAQ文件
+
+        if not os.path.exists(self.faq_file_path):
+            issues.append("FAQ文件不存在")
+
+        else:
+            faqs = self.get_all_faqs()
+
+            if not faqs:
+                issues.append("FAQ文件为空")
+
+            # 检查FAQ格式
+            for faq in faqs:
+                if not faq.get('question', '').strip():
+                    issues.append(f"FAQ ID {faq.get('id', 'unknow')},缺少问题")
+
+                if not faq.get('answer', '').strip():
+                    issues.append(f"FAQ ID{faq.get('id', 'unknow')},缺少答案")
+
+            if not os.path.exists(self.index_path):
+                warnings.append("向量索引不存在，建议重建索引")
+
+            return {
+                "is_valid": len(issues) == 0,
+                "issues": issues,
+                "warnings": warnings,
+                "checked_at": datetime.datetime.now().isoformat()
+            }
+
+
+def main():
+    """测试知识库管理功能"""
+    kb_manager = KnowledgeBaseManager()
+
+    print("====知识库管理系统=====")
+
+    # 获取统计信息
+    stats = kb_manager.get_statisitcs()
+
+    print(f"当前FAQ数量：{stats['total_faqs']}")
+
+    # 验证知识库
+    validation = kb_manager.validate_knowledge_base()
+    print(f"知识库验证：{'成功' if validation['is_valid'] else '失败'}")
+
+    # 创建备份
+    backup_name = kb_manager.create_backup("测试备份")
+
+    if backup_name:
+        print(f"备份创建成功：{backup_name}")
+
+    # 列出备份
+    backups = kb_manager.list_backups()
+    print(f"备份数量：{len(backups)}")
+
+
+if __name__ == "__main__":
+    main()
